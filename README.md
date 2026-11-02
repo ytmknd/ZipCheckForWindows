@@ -2,9 +2,11 @@
 
 A web app that checks whether a zip file can be extracted with Windows 11 File Explorer (right-click → "Extract All"). If it cannot, the app shows how to fix it, both for the person who created the zip and for the person who received it.
 
+**Try it: https://ytmknd.github.io/ZipCheckForWindows/**
+
 ## Usage
 
-Open `index.html` in a browser and drop zip files onto it. No server or installation is required. The zip is only inspected inside the browser and is never uploaded. Only the file list at the end of the zip (the central directory) is read, so results appear instantly even for large zips.
+Open the page above (or `index.html` locally) in a browser and drop zip files onto it. No server or installation is required. The zip is only inspected inside the browser and is never uploaded. Only the file list at the end of the zip (the central directory) is read, so results appear instantly even for large zips.
 
 - **Folder where the zip is placed**: If you enter it, the app also checks whether the destination paths `<folder>\<zip name>\...` exceed 260 characters (browsers cannot see where a file is stored, so it has to be typed in).
 - **Windows language (OEM code page)**: Selects the code page Explorer uses to read file names that lack the UTF-8 flag. The default follows the browser language (Japanese → CP932, Korean → CP949, Chinese → CP936 / CP950, otherwise CP437). UTF-8 is also available for PCs with "Beta: Use Unicode UTF-8 for worldwide language support" enabled.

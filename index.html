@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZipCheckForWindows</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="description" content="zip ファイルを Windows のエクスプローラーで展開できるかを判定し、直し方を案内します。">
+<style>
+  :root {
+    --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --text: #1d2330; --muted: #5d6677;
+    --border: #d9dee6; --accent: #2563eb; --accent-soft: #e6eefc;
+    --ok: #15803d; --ok-soft: #e7f6ec; --warn: #a16207; --warn-soft: #fdf6e3;
+    --bad: #b91c1c; --bad-soft: #fdecec; --info: #475569; --info-soft: #eef1f5;
+    --mark: #fde68a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12151b; --surface: #1b2029; --surface-2: #232a35; --text: #e6e9ef; --muted: #9aa4b5;
+      --border: #313948; --accent: #6b9cff; --accent-soft: #1d2b47;
+      --ok: #4ade80; --ok-soft: #14301f; --warn: #facc15; --warn-soft: #362d10;
+      --bad: #f87171; --bad-soft: #3a1a1a; --info: #a3b1c6; --info-soft: #222a36;
+      --mark: #6b5310;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12151b; --surface: #1b2029; --surface-2: #232a35; --text: #e6e9ef; --muted: #9aa4b5;
+    --border: #313948; --accent: #6b9cff; --accent-soft: #1d2b47;
+    --ok: #4ade80; --ok-soft: #14301f; --warn: #facc15; --warn-soft: #362d10;
+    --bad: #f87171; --bad-soft: #3a1a1a; --info: #a3b1c6; --info-soft: #222a36;
+    --mark: #6b5310;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", "Yu Gothic UI", "Meiryo", system-ui, sans-serif; line-height: 1.6;
+  }
+  main { max-width: 920px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  .lead { color: var(--muted); margin: 0 0 24px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  #drop {
+    border: 2px dashed var(--border); border-radius: 12px; padding: 36px 16px; text-align: center;
+    cursor: pointer; background: var(--surface); transition: border-color .15s, background .15s;
+  }
+  #drop:hover, #drop:focus-visible, #drop.over { border-color: var(--accent); background: var(--accent-soft); outline: none; }
+  #drop strong { font-size: 1.1rem; }
+  #drop p { margin: 6px 0 0; color: var(--muted); font-size: .9rem; }
+  .settings { display: grid; grid-template-columns: 1fr 260px; gap: 12px; margin-top: 16px; }
+  @media (max-width: 640px) { .settings { grid-template-columns: 1fr; } }
+  label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 4px; }
+  input[type=text], select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); color: var(--text); font: inherit;
+  }
+  .hint { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .verdict { display: flex; gap: 14px; align-items: flex-start; border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; border: 1px solid transparent; }
+  .verdict .icon { font-size: 1.8rem; line-height: 1; flex: none; }
+  .verdict h2 { margin: 0 0 4px; font-size: 1.25rem; }
+  .verdict p { margin: 0; }
+  .v-ok { background: var(--ok-soft); border-color: var(--ok); }
+  .v-ok h2 { color: var(--ok); }
+  .v-warn { background: var(--warn-soft); border-color: var(--warn); }
+  .v-warn h2 { color: var(--warn); }
+  .v-bad { background: var(--bad-soft); border-color: var(--bad); }
+  .v-bad h2 { color: var(--bad); }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: .88rem; color: var(--muted); margin-bottom: 16px; }
+  .meta b { color: var(--text); font-weight: 600; }
+  .issue { border-left: 5px solid var(--border); }
+  .issue.sev-fatal, .issue.sev-bad { border-left-color: var(--bad); }
+  .issue.sev-warn { border-left-color: var(--warn); }
+  .issue.sev-info { border-left-color: var(--info); }
+  .issue h3 { margin: 0 0 6px; font-size: 1.05rem; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .badge { font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .sev-fatal .badge, .sev-bad .badge { background: var(--bad-soft); color: var(--bad); }
+  .sev-warn .badge { background: var(--warn-soft); color: var(--warn); }
+  .sev-info .badge { background: var(--info-soft); color: var(--info); }
+  .issue .why { margin: 0 0 12px; color: var(--muted); }
+  .fix { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  @media (max-width: 640px) { .fix { grid-template-columns: 1fr; } }
+  .fix > div { background: var(--surface-2); border-radius: 8px; padding: 12px 14px; }
+  .fix h4 { margin: 0 0 6px; font-size: .9rem; }
+  .fix ol, .fix ul { margin: 0; padding-left: 1.3em; }
+  .fix li { margin: 2px 0; }
+  details { margin-top: 8px; }
+  summary { cursor: pointer; color: var(--accent); font-size: .9rem; }
+  .files { list-style: none; margin: 8px 0 0; padding: 0; max-height: 360px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+  .files li { padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: .85rem; overflow-wrap: anywhere; }
+  .files li:last-child { border-bottom: none; }
+  .files .path { font-family: Consolas, "BIZ UDGothic", monospace; }
+  .files .note { display: block; color: var(--muted); font-size: .8rem; }
+  mark { background: var(--mark); color: inherit; border-radius: 2px; padding: 0 1px; }
+  code { font-family: Consolas, "BIZ UDGothic", monospace; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: .9em; overflow-wrap: anywhere; }
+  .error { color: var(--bad); }
+  .zipname { font-size: 1.15rem; margin: 28px 0 10px; overflow-wrap: anywhere; }
+  .src { margin: 10px 0 0; font-size: .78rem; color: var(--muted); }
+  .src a, .fix a { color: var(--accent); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<main>
+  <h1>ZipCheckForWindows</h1>
+  <p class="lead">zip ファイルを Windows 11 のエクスプローラー（右クリック →「すべて展開」）で展開できるかを判定します。展開できない場合は、直し方を表示します。ファイルはブラウザの中で調べるだけで、どこにも送信しません。</p>
+
+  <div id="drop" tabindex="0" role="button" aria-label="zip ファイルを選択">
+    <strong>ここに zip ファイルをドロップ</strong>
+    <p>またはクリックしてファイルを選択（複数可）</p>
+    <input type="file" id="picker" accept=".zip,application/zip" multiple class="sr-only">
+  </div>
+
+  <div class="settings">
+    <div>
+      <label for="folder">zip を置く（展開する）フォルダ</label>
+      <input type="text" id="folder" placeholder="例: C:\Users\yamada\Downloads" spellcheck="false">
+      <div class="hint">エクスプローラーは「このフォルダ\zip 名\」に展開します。入力すると、展開先のパスが長すぎないかも判定します。ブラウザからはフォルダの場所がわからないため、手で入力してください。</div>
+    </div>
+    <div>
+      <label for="oem">Windows の言語（OEM コードページ）</label>
+      <select id="oem"></select>
+      <div class="hint">UTF-8 フラグのないファイル名は、この文字コードで読まれます。</div>
+    </div>
+  </div>
+
+  <div id="results" aria-live="polite"></div>
+</main>
+<script src="zipcheckforwindows.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

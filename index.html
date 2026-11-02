@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ZipCheckForWindows</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<meta name="description" content="zip ファイルを Windows のエクスプローラーで展開できるかを判定し、直し方を案内します。">
+<meta name="description" data-i18n-content="description" content="zip ファイルを Windows のエクスプローラーで展開できるかを判定し、直し方を案内します。">
 <style>
   :root {
     --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5; --text: #1d2330; --muted: #5d6677;
@@ -101,24 +101,24 @@
 <body>
 <main>
   <h1>ZipCheckForWindows</h1>
-  <p class="lead">zip ファイルを Windows 11 のエクスプローラー（右クリック →「すべて展開」）で展開できるかを判定します。展開できない場合は、直し方を表示します。ファイルはブラウザの中で調べるだけで、どこにも送信しません。</p>
+  <p class="lead" data-i18n="lead">zip ファイルを Windows 11 のエクスプローラー（右クリック →「すべて展開」）で展開できるかを判定します。展開できない場合は、直し方を表示します。ファイルはブラウザの中で調べるだけで、どこにも送信しません。</p>
 
-  <div id="drop" tabindex="0" role="button" aria-label="zip ファイルを選択">
-    <strong>ここに zip ファイルをドロップ</strong>
-    <p>またはクリックしてファイルを選択（複数可）</p>
+  <div id="drop" tabindex="0" role="button" aria-label="zip ファイルを選択" data-i18n-aria-label="dropAria">
+    <strong data-i18n="dropTitle">ここに zip ファイルをドロップ</strong>
+    <p data-i18n="dropSub">またはクリックしてファイルを選択（複数可）</p>
     <input type="file" id="picker" accept=".zip,application/zip" multiple class="sr-only">
   </div>
 
   <div class="settings">
     <div>
-      <label for="folder">zip を置く（展開する）フォルダ</label>
-      <input type="text" id="folder" placeholder="例: C:\Users\yamada\Downloads" spellcheck="false">
-      <div class="hint">エクスプローラーは「このフォルダ\zip 名\」に展開します。入力すると、展開先のパスが長すぎないかも判定します。ブラウザからはフォルダの場所がわからないため、手で入力してください。</div>
+      <label for="folder" data-i18n="folderLabel">zip を置く（展開する）フォルダ</label>
+      <input type="text" id="folder" placeholder="例: C:\Users\yamada\Downloads" data-i18n-placeholder="folderPlaceholder" spellcheck="false">
+      <div class="hint" data-i18n="folderHint">エクスプローラーは「このフォルダ\zip 名\」に展開します。入力すると、展開先のパスが長すぎないかも判定します。ブラウザからはフォルダの場所がわからないため、手で入力してください。</div>
     </div>
     <div>
-      <label for="oem">Windows の言語（OEM コードページ）</label>
+      <label for="oem" data-i18n="oemLabel">Windows の言語（OEM コードページ）</label>
       <select id="oem"></select>
-      <div class="hint">UTF-8 フラグのないファイル名は、この文字コードで読まれます。</div>
+      <div class="hint" data-i18n="oemHint">UTF-8 フラグのないファイル名は、この文字コードで読まれます。</div>
     </div>
   </div>
 

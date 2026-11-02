@@ -12,22 +12,32 @@
   ]);
   const INVALID_CHAR_MAP = { '<': '＜', '>': '＞', ':': '：', '"': '”', '|': '｜', '?': '？', '*': '＊' };
 
+  // 表示用の文言は lang ('ja' | 'en') で切り替える。判定そのものは言語に依存しない
+  const L = (lang, ja, en) => (lang === 'en' ? en : ja);
+
   const METHOD_NAMES = {
-    0: 'Stored（無圧縮）', 1: 'Shrink', 6: 'Implode', 8: 'Deflate', 9: 'Deflate64',
-    12: 'BZip2', 14: 'LZMA', 93: 'Zstandard', 95: 'XZ', 96: 'JPEG', 97: 'WavPack', 98: 'PPMd', 99: 'AES 暗号化',
+    1: 'Shrink', 6: 'Implode', 8: 'Deflate', 9: 'Deflate64',
+    12: 'BZip2', 14: 'LZMA', 93: 'Zstandard', 95: 'XZ', 96: 'JPEG', 97: 'WavPack', 98: 'PPMd',
   };
-  const methodName = (m) => METHOD_NAMES[m] || `方式 ${m}`;
+  function methodName(m, lang = 'ja') {
+    if (m === 0) return L(lang, 'Stored（無圧縮）', 'Stored (no compression)');
+    if (m === 99) return L(lang, 'AES 暗号化', 'AES encryption');
+    return METHOD_NAMES[m] || L(lang, `方式 ${m}`, `method ${m}`);
+  }
 
   /** 空・"."・".." を除いてパスを分割する。 */
   function splitPath(name) {
     return name.split(/[\/\\]/).filter((s) => s.length > 0 && s !== '.' && s !== '..');
   }
 
-  /** Windows で使えない文字・名前を置き換える（修正例の表示用）。 */
-  function sanitizeName(name) {
+  /**
+   * Windows で使えない文字・名前を置き換える（修正例の表示用）。
+   * 日本語では全角の同じ形の文字に、英語では「_」に置き換える（判定には日本語版を使う）。
+   */
+  function sanitizeName(name, lang = 'ja') {
     let s = '';
     for (const c of name) {
-      if (INVALID_CHAR_MAP[c]) s += INVALID_CHAR_MAP[c];
+      if (INVALID_CHAR_MAP[c]) s += lang === 'en' ? '_' : INVALID_CHAR_MAP[c];
       else if (c.charCodeAt(0) < 0x20) s += '_';
       else s += c;
     }
@@ -38,17 +48,18 @@
   }
 
   /** 名前のどこが Windows で問題になるかを説明する。 */
-  function describeInvalid(part) {
+  function describeInvalid(part, lang = 'ja') {
     const reasons = [];
     const chars = new Set();
     for (const c of part) {
       if (INVALID_CHAR_MAP[c]) chars.add(c);
-      else if (c.charCodeAt(0) < 0x20) chars.add(`制御文字 U+${c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}`);
+      else if (c.charCodeAt(0) < 0x20) chars.add(L(lang, '制御文字 ', 'control character ') + `U+${c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}`);
     }
-    if (chars.size) reasons.push(`使えない文字 ${[...chars].map((c) => c.length === 1 ? `「${c}」` : c).join(' ')}`);
-    if (/[ .]$/.test(part)) reasons.push('末尾がドットまたは空白');
-    if (RESERVED.has(part.replace(/[ .]+$/, '').split('.')[0].toUpperCase())) reasons.push(`予約名「${part.split('.')[0]}」`);
-    return reasons.join('、');
+    const quote = (c) => L(lang, `「${c}」`, `"${c}"`);
+    if (chars.size) reasons.push(L(lang, '使えない文字 ', 'invalid characters ') + [...chars].map((c) => c.length === 1 ? quote(c) : c).join(' '));
+    if (/[ .]$/.test(part)) reasons.push(L(lang, '末尾がドットまたは空白', 'ends with a dot or space'));
+    if (RESERVED.has(part.replace(/[ .]+$/, '').split('.')[0].toUpperCase())) reasons.push(L(lang, '予約名', 'reserved name ') + quote(part.split('.')[0]));
+    return reasons.join(L(lang, '、', '; '));
   }
 
   const utf8Strict = new TextDecoder('utf-8', { fatal: true });
@@ -223,13 +234,15 @@
   }
 
   /** ほかの言語の文字コードで読んだ候補（それらしく読めたものだけ）。 */
-  function foreignCandidates(bytes) {
+  function foreignCandidates(bytes, lang = 'ja') {
     const nonAscii = (s) => [...s].filter((c) => c.codePointAt(0) >= 0x80);
     const out = [];
+    const hangul = (c) => c >= '가' && c <= '힣';
+    const cjk = (c) => c >= '一' && c <= '鿿';
     const tries = [
-      ['euc-kr', '韓国語 (EUC-KR)', (c) => c >= '가' && c <= '힣'],
-      ['gbk', '簡体字中国語 (GBK)', (c) => c >= '一' && c <= '鿿'],
-      ['big5', '繁体字中国語 (Big5)', (c) => c >= '一' && c <= '鿿'],
+      ['euc-kr', L(lang, '韓国語 (EUC-KR)', 'Korean (EUC-KR)'), hangul],
+      ['gbk', L(lang, '簡体字中国語 (GBK)', 'Simplified Chinese (GBK)'), cjk],
+      ['big5', L(lang, '繁体字中国語 (Big5)', 'Traditional Chinese (Big5)'), cjk],
     ];
     for (const [label, langName, plausible] of tries) {
       if (!isValidIn(bytes, label)) continue;
@@ -258,25 +271,28 @@
   }
 
   const OEM_CODEPAGES = {
-    932: { label: 'shift_jis', name: '日本語 (CP932 / Shift_JIS)' },
-    437: { label: null, name: '英語 (CP437)' },
-    936: { label: 'gbk', name: '簡体字中国語 (CP936 / GBK)' },
-    949: { label: 'euc-kr', name: '韓国語 (CP949)' },
-    950: { label: 'big5', name: '繁体字中国語 (CP950 / Big5)' },
-    65001: { label: 'utf-8', name: 'UTF-8（ベータ: ワールドワイド言語サポート）' },
+    932: { label: 'shift_jis', name: '日本語 (CP932 / Shift_JIS)', nameEn: 'Japanese (CP932 / Shift_JIS)' },
+    437: { label: null, name: '英語 (CP437)', nameEn: 'English (CP437)' },
+    936: { label: 'gbk', name: '簡体字中国語 (CP936 / GBK)', nameEn: 'Simplified Chinese (CP936 / GBK)' },
+    949: { label: 'euc-kr', name: '韓国語 (CP949)', nameEn: 'Korean (CP949)' },
+    950: { label: 'big5', name: '繁体字中国語 (CP950 / Big5)', nameEn: 'Traditional Chinese (CP950 / Big5)' },
+    65001: { label: 'utf-8', name: 'UTF-8（ベータ: ワールドワイド言語サポート）', nameEn: 'UTF-8 (Beta: worldwide language support)' },
   };
+  /** コードページの表示名。 */
+  const oemName = (cp, lang = 'ja') => { const o = OEM_CODEPAGES[cp]; return o ? (lang === 'en' ? o.nameEn : o.name) : ''; };
   const ENCODING_CODEPAGE = { 'utf-8': 65001, shift_jis: 932, gbk: 936, 'euc-kr': 949, big5: 950 };
 
   /**
    * 解析本体。
    * @param cd セントラルディレクトリのバイト列
-   * @param opts { zipName, folder, oemCodePage }
+   * @param opts { zipName, folder, oemCodePage, lang }（lang: 表示用の文言の言語 'ja' | 'en'）
    */
   function diagnose(cd, opts) {
     const zipName = opts.zipName || 'archive.zip';
     const stem = zipName.replace(/\.zip$/i, '');
     const folder = (opts.folder || '').trim().replace(/[\\\/]+$/, '');
     const oemCodePage = opts.oemCodePage || 932;
+    const lang = opts.lang === 'en' ? 'en' : 'ja';
     const explorerDest = folder ? `${folder}\\${stem}` : null;
 
     const { entries, truncated } = parseCentralDirectory(cd);
@@ -313,7 +329,7 @@
       if (e.flags & 0x40) issues.strongEnc.push({ name });
       else if (e.method === 99) issues.aes.push({ name });
       else if (e.flags & 0x1) issues.zipCrypto.push({ name });
-      if (e.method !== 99 && ![0, 8, 9].includes(e.method)) issues.unsupportedMethod.push({ name, method: e.method, methodName: methodName(e.method) });
+      if (e.method !== 99 && ![0, 8, 9].includes(e.method)) issues.unsupportedMethod.push({ name, method: e.method, methodName: methodName(e.method, lang) });
 
       // --- 文字化け ---
       // UTF-8 フラグがあるのに UTF-8 として正しくない名前（作成ソフトの不具合）。エクスプローラーは UTF-8 として読み、
@@ -336,11 +352,11 @@
         const dirBecomesFile = sepLost && isDir && !/[\/\\]$/.test(explorerView);
         if (!isValidIn(e.nameBytes, enc)) {
           // UTF-8 としても推定した文字コードとしても読めない（ほかの言語の文字コードなど）
-          issues.undecodable.push({ name, explorerView, extLost, sepLost, dirBecomesFile, candidates: foreignCandidates(e.nameBytes) });
+          issues.undecodable.push({ name, explorerView, extLost, sepLost, dirBecomesFile, candidates: foreignCandidates(e.nameBytes, lang) });
           misread = true;
         } else if (enc === 'shift_jis' && looksForeign(e.nameBytes)) {
           // Shift_JIS としては読めるが、中国語・韓国語の文字コードらしい（日本語版 Windows でも化ける）
-          issues.foreign.push({ name, explorerView, extLost, sepLost, dirBecomesFile, candidates: foreignCandidates(e.nameBytes) });
+          issues.foreign.push({ name, explorerView, extLost, sepLost, dirBecomesFile, candidates: foreignCandidates(e.nameBytes, lang) });
           misread = true;
         } else if (ENCODING_CODEPAGE[enc] !== oemCodePage) {
           issues.garbled.push({ name, explorerView, extLost, sepLost, dirBecomesFile });
@@ -355,7 +371,7 @@
       if (/[\u{10000}-\u{10FFFF}]/u.test(name)) issues.emoji.push({ name, chars: [...new Set(name.match(/[\u{10000}-\u{10FFFF}]/gu))].join('') });
 
       const bad = parts.filter((part) => sanitizeName(part) !== part);
-      if (bad.length) issues.invalidName.push({ name, parts: bad.map((part) => ({ part, reason: describeInvalid(part), fixed: sanitizeName(part) })) });
+      if (bad.length) issues.invalidName.push({ name, parts: bad.map((part) => ({ part, reason: describeInvalid(part, lang), fixed: sanitizeName(part, lang) })) });
 
       // Windows のファイルシステムは大文字・小文字を区別しない。フォルダの重複（a/ と a/x の a）は除外
       if (parts.length) {
@@ -408,7 +424,7 @@
     return result;
   }
 
-  const api = { analyzeBlob, diagnose, decodeCp932Win, looksForeign, sanitizeName, splitPath, describeInvalid, methodName, OEM_CODEPAGES };
+  const api = { analyzeBlob, diagnose, decodeCp932Win, looksForeign, sanitizeName, splitPath, describeInvalid, methodName, OEM_CODEPAGES, oemName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.ZipCheckForWindows = api;
 })(typeof self !== 'undefined' ? self : this);

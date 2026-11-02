@@ -1,67 +1,71 @@
 # ZipCheckForWindows
 
-zip ファイルが Windows 11 のエクスプローラー（右クリック →「すべて展開」）で展開できるかを判定する Web アプリです。展開できない場合は、zip の作成者向けと受け取った人向けに、それぞれの直し方を表示します。
+A web app that checks whether a zip file can be extracted with Windows 11 File Explorer (right-click → "Extract All"). If it cannot, the app shows how to fix it, both for the person who created the zip and for the person who received it.
 
-## 使い方
+## Usage
 
-`index.html` をブラウザで開き、zip ファイルをドロップします。サーバーもインストールも不要です。zip はブラウザの中で調べるだけで、どこにも送信しません。読むのは zip 末尾のファイル一覧（セントラルディレクトリ）だけなので、大きな zip でもすぐに結果が出ます。
+Open `index.html` in a browser and drop zip files onto it. No server or installation is required. The zip is only inspected inside the browser and is never uploaded. Only the file list at the end of the zip (the central directory) is read, so results appear instantly even for large zips.
 
-- **zip を置くフォルダ**: 入力すると、展開先 `<フォルダ>\<zip 名>\` のパスが 260 文字を超えないかも判定します（ブラウザからはファイルの場所がわからないため、手で入力します）。
-- **Windows の言語**: UTF-8 フラグのないファイル名をエクスプローラーがどの文字コードで読むかを選びます。既定は日本語（CP932）です。「ワールドワイド言語サポートで Unicode UTF-8 を使用」（ベータ）を有効にした PC 向けに UTF-8 も選べます。
+- **Folder where the zip is placed**: If you enter it, the app also checks whether the destination paths `<folder>\<zip name>\...` exceed 260 characters (browsers cannot see where a file is stored, so it has to be typed in).
+- **Windows language (OEM code page)**: Selects the code page Explorer uses to read file names that lack the UTF-8 flag. The default follows the browser language (Japanese → CP932, Korean → CP949, Chinese → CP936 / CP950, otherwise CP437). UTF-8 is also available for PCs with "Beta: Use Unicode UTF-8 for worldwide language support" enabled.
 
-## 判定する内容と根拠
+### Language
 
-| 重大度 | 内容 | 根拠 |
+Messages are shown in Japanese when the browser's preferred language is Japanese, and in English otherwise. The language is determined from `navigator.languages[0]`.
+
+## What is checked, and sources
+
+| Severity | Check | Source |
 | --- | --- | --- |
-| 展開不可（zip 全体が無効） | zip 内のパス（エントリ名）が、記録された文字コードで 260 バイト以上。「圧縮 (zip 形式) フォルダーは無効です」となり何も展開できない。Windows 11 の全バージョンが対象で、LongPathsEnabled でも回避できない | [Microsoft サポートの解説（窓の杜）](https://forest.watch.impress.co.jp/docs/news/2119996.html)、[Box サポート](https://support.box.com/hc/en-us/articles/43374437409043) |
-| 展開できない | フォルダ名・ファイル名が 256 文字以上（NTFS の上限は 255 文字） | [Microsoft Learn](https://learn.microsoft.com/windows/win32/fileio/maximum-file-path-limitation) |
-| 展開できない | AES 暗号化（ZipCrypto のみ対応）、PKWARE Strong Encryption | [Microsoft Q&A](https://learn.microsoft.com/en-us/answers/a/3828684) |
-| 展開できない | Deflate / Deflate64 / 無圧縮 以外の圧縮方式（LZMA、BZip2 など） | [Total Commander フォーラムでの検証](https://ghisler.ch/board/viewtopic.php?p=442286) |
-| 展開できない | Windows で使えない名前（`: ? * \| < > "`、CON や NUL などの予約名、末尾のドット・空白） | [Microsoft Learn](https://learn.microsoft.com/windows/win32/fileio/naming-a-file) |
-| 展開できない | ZIP64 の終端レコードなしで 65,535 件を超えるファイル（一部しか認識されない） | [Git の修正](https://git.lorimer.id.au/gitweb.git/diff/88329ca8091b16f4bb01e3ea546c8c5e1a5016ec) |
-| 展開できない | 展開先のパスが 260 文字以上（エラー 0x80010135） | [winhelponline](https://www.winhelponline.com/blog/error-0x80010135-path-too-long-when-extracting-zip-file/) |
-| 注意 | 大文字・小文字だけが違う名前（Windows では同じ名前になり、片方しか残らない） | Windows のファイルシステムの仕様 |
-| 注意 | UTF-8 フラグも Unicode Path 拡張フィールド（0x7075）もない非 ASCII 名（OEM コードページで読まれて文字化け）。拡張子の「.」が消える場合も警告する | [Qiita](https://qiita.com/ko1nksm/items/0cce942c5a77574e68b7)、[ZIP64 / UTF-8 対応状況の調査](https://github.com/3MFConsortium/spec_core/files/6516560/ZIP.Report.pdf)、実機検証 |
-| 注意 | UTF-8 としても Shift_JIS としても読めない名前（ほかの言語の文字コード。文字化けする） | 実機検証 |
-| 注意 | Shift_JIS としては読めるが、中国語（GBK / Big5）・韓国語（EUC-KR）らしい名前（日本語版 Windows でもエラーにならず、半角カナ混じりの名前で展開される） | 実機検証 |
-| 注意 | UTF-8 フラグがあるのに UTF-8 として正しくない名前（「�」に化ける。Shift_JIS の 0x5C が「\」になって意図しないフォルダができる） | [PKWARE APPNOTE](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT)、実機検証 |
-| 注意 | フラグなしの Shift_JIS 名など、選択した言語の Windows では読めるが、ほかの言語の Windows や「ワールドワイド言語サポートで Unicode UTF-8 を使用」（ベータ）を有効にした Windows では化ける名前 | [ZIP64 / UTF-8 対応状況の調査](https://github.com/3MFConsortium/spec_core/files/6516560/ZIP.Report.pdf) |
-| 注意 | Mac 由来の NFD 形式の名前（濁点・半濁点が分離して見える） | [BandiNamer](https://jp.bandisoft.com/bandinamer/)、[mac2win-zip](https://github.com/Wordbe/mac2win-zip) |
-| 注意 | 絵文字など BMP 外の文字を含む名前（「無効」になる報告あり） | [Johnny.Decimal サポート](https://business.johnnydecimal.com/support/knowledge-base/error-windows-zip) |
-| 注意 | 展開後のサイズが 1.5 GB 以上（「データ エラー」「0x80004005」「0x8000FFFF」で失敗する報告あり） | [Dell サポート](https://www.dell.com/support/kbdoc/ja-jp/000334778)、[Microsoft Q&A](https://learn.microsoft.com/en-us/answers/a/12196710) |
-| 参考 | ZipCrypto のパスワード付き（展開できる） | |
+| Cannot extract (whole zip invalid) | A path (entry name) in the zip is 260 bytes or longer in its stored encoding. Explorer shows "The Compressed (zipped) Folder is invalid" and extracts nothing. Affects all Windows 11 versions; LongPathsEnabled does not help | [Microsoft Support explanation (Mado no Mori, Japanese)](https://forest.watch.impress.co.jp/docs/news/2119996.html), [Box Support](https://support.box.com/hc/en-us/articles/43374437409043) |
+| Cannot extract | A folder or file name is 256 characters or longer (the NTFS limit is 255) | [Microsoft Learn](https://learn.microsoft.com/windows/win32/fileio/maximum-file-path-limitation) |
+| Cannot extract | AES encryption (only ZipCrypto is supported), PKWARE Strong Encryption | [Microsoft Q&A](https://learn.microsoft.com/en-us/answers/a/3828684) |
+| Cannot extract | Compression methods other than Deflate / Deflate64 / Stored (LZMA, BZip2, etc.) | [Test on the Total Commander forum](https://ghisler.ch/board/viewtopic.php?p=442286) |
+| Cannot extract | Names not allowed on Windows (`: ? * \| < > "`, reserved names such as CON and NUL, trailing dots and spaces) | [Microsoft Learn](https://learn.microsoft.com/windows/win32/fileio/naming-a-file) |
+| Cannot extract | More than 65,535 entries without a ZIP64 end record (only some are recognized) | [Git fix](https://git.lorimer.id.au/gitweb.git/diff/88329ca8091b16f4bb01e3ea546c8c5e1a5016ec) |
+| Cannot extract | Destination path of 260 characters or more (error 0x80010135) | [winhelponline](https://www.winhelponline.com/blog/error-0x80010135-path-too-long-when-extracting-zip-file/) |
+| Warning | Names that differ only in letter case (they collide on Windows and only one is kept) | Behavior of the Windows file system |
+| Warning | Non-ASCII names with neither the UTF-8 flag nor a Unicode Path extra field (0x7075); they are read with the OEM code page and garbled. Also warns when the "." of an extension or a "/" folder separator is lost | [Qiita (Japanese)](https://qiita.com/ko1nksm/items/0cce942c5a77574e68b7), [ZIP64 / UTF-8 support report](https://github.com/3MFConsortium/spec_core/files/6516560/ZIP.Report.pdf), verified on a real machine |
+| Warning | Names that are valid neither as UTF-8 nor as Shift_JIS (another language's encoding; garbled) | Verified on a real machine |
+| Warning | Names that are valid Shift_JIS but look like Chinese (GBK / Big5) or Korean (EUC-KR); even Japanese Windows extracts them without error under names mixing half-width katakana | Verified on a real machine |
+| Warning | Names with the UTF-8 flag set that are not valid UTF-8 (garbled into "�"; byte 0x5C in Shift_JIS becomes "\" and creates unintended folders) | [PKWARE APPNOTE](https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT), verified on a real machine |
+| Warning | Names such as unflagged Shift_JIS that read correctly on Windows in the selected language but are garbled on Windows in other languages or with "Beta: Use Unicode UTF-8 for worldwide language support" enabled | [ZIP64 / UTF-8 support report](https://github.com/3MFConsortium/spec_core/files/6516560/ZIP.Report.pdf) |
+| Warning | Names in NFD form from macOS (accents and Japanese voiced sound marks appear detached) | [BandiNamer](https://www.bandisoft.com/bandinamer/), [mac2win-zip](https://github.com/Wordbe/mac2win-zip) |
+| Warning | Names containing characters outside the BMP, such as emoji (reported to make the zip "invalid") | [Johnny.Decimal Support](https://business.johnnydecimal.com/support/knowledge-base/error-windows-zip) |
+| Warning | Extracted size of 1.5 GB or more (reported failures with "Data error", "0x80004005", "0x8000FFFF") | [Dell Support](https://www.dell.com/support/kbdoc/en-us/000334778), [Microsoft Q&A](https://learn.microsoft.com/en-us/answers/a/12196710) |
+| Info | Password-protected with ZipCrypto (can be extracted) | |
 
-このほか、zip でないファイル（拡張子だけ .zip の RAR や 7z）、分割 zip、壊れた zip も見分けます。ZIP64 形式の zip はエクスプローラーで展開できるため、問題として扱いません。
+The app also detects files that are not zips (RAR or 7z with a .zip extension), split zips, and corrupted zips. ZIP64 zips can be extracted by Explorer, so they are not treated as a problem.
 
-「注意」の項目は、公式な資料ではなく報告ベースのものです。
+Items marked "Warning" are based on reports rather than official documentation.
 
-## ファイル名の文字化けについての実機検証（Windows 11 25H2、OEM コードページ 932）
+## Real-machine verification of garbled file names (Windows 11 25H2, OEM code page 932)
 
-ファイル名のバイト列・UTF-8 フラグ・拡張フィールドを変えたテスト用 zip を作り、エクスプローラーと同じ zip エンジン（Shell.Application / zipfldr）で展開した結果です。アプリが予測する「エクスプローラーでの表示」は、29 件すべてで実際に展開されたファイル名とコードポイント単位で一致しました。
+Test zips were built with varying name bytes, UTF-8 flags, and extra fields, then extracted with the same zip engine as Explorer (Shell.Application / zipfldr). For all 29 cases, the "Shown in Explorer as" name predicted by the app matched the actually extracted file name, code point for code point.
 
-| zip の中身 | エクスプローラーの結果 |
+| Zip contents | Result in Explorer |
 | --- | --- |
-| Shift_JIS、フラグなし | 正しく展開（日本語版 Windows の場合） |
-| UTF-8、フラグなし | 文字化け（CP932 として読まれる） |
-| UTF-8、フラグあり | 正しく展開 |
-| フラグなし＋Unicode Path 拡張フィールド（0x7075） | **拡張フィールドの名前で展開**。CRC が元の名前と合わなくても使われる |
-| フラグあり、中身は Shift_JIS | 読めない部分が「�」(U+FFFD) になる。0x5C を含む文字（ソ・表・能など）は「\」になり、フォルダが分かれる |
-| セントラルディレクトリとローカルヘッダーで名前が違う | セントラルディレクトリの名前を使う |
-| GBK / EUC-KR / Big5、フラグなし | 化けた名前で展開（エラーにならない） |
-| Mac の NFD 形式（濁点の分離）、フラグあり | 分離したまま展開（NFC に直されない） |
+| Shift_JIS, no flag | Extracted correctly (on Japanese Windows) |
+| UTF-8, no flag | Garbled (read as CP932) |
+| UTF-8, flag set | Extracted correctly |
+| No flag + Unicode Path extra field (0x7075) | **Extracted using the name in the extra field**, even if its CRC does not match the original name |
+| Flag set, but the name is Shift_JIS | Unreadable parts become "�" (U+FFFD). Characters containing byte 0x5C (ソ, 表, 能, etc.) become "\" and split the path into folders |
+| Different names in the central directory and the local header | The central directory name is used |
+| GBK / EUC-KR / Big5, no flag | Extracted under garbled names (no error) |
+| macOS NFD form (detached marks), flag set | Extracted as is (not normalized to NFC) |
 
-- CP932 で未定義の 2 バイトの並びは「・」(U+30FB) になり、**2 バイト目が ASCII でも一緒に消える**。`报告最终版.pdf`（GBK）は `ｱｨｸ贐靑ﾕｰ・pdf` となり、拡張子の「.」が消えた。ブラウザの TextDecoder はこの点が Windows と違うため、`zipcheckforwindows.js` の `decodeCp932Win` で Windows の動作を再現している（1 バイト・2 バイトの全 32,896 通りで `MultiByteToWideChar(932)` と一致することを確認）。
-- フォルダ区切りの「/」も同じ理由で消える。UTF-8・フラグなしの `テスト/`、`テスト/ガ.txt`、`資料/報告.txt` は、`繝・せ繝・`（**0 バイトのファイル**）、`繝・せ繝・繧ｬ.txt`（フォルダの外）、`雉・侭\蝣ｱ蜻・txt`（拡張子が消える）として展開された。
-- Windows 自身が作る zip: エクスプローラーの「送る → 圧縮 (zip 形式) フォルダー」は Shift_JIS・フラグなしで記録した。PowerShell 5.1 の `Compress-Archive` は UTF-8・フラグありで記録したが、サブフォルダの区切りを仕様（「/」）に反して「\」で記録した。
-- [Xceed の資料](https://xceed.com/documentation/xceed-filesystem-for-net/Handling%20Unicode%20characters.html)によると、Windows 7 のエクスプローラーは Unicode Path 拡張フィールドを読まず、Windows 8 で読むようになった。25H2 で読むことは上の検証で確認した。
-- 中国語・韓国語の判定は、日本語の名前を誤って警告しないことを優先している。半角カナだけで読める名前（`회의록.txt` など）は見逃すことがある。
-- 「ワールドワイド言語サポートで Unicode UTF-8 を使用」（ベータ）を有効にした場合と、23H2 以降の「圧縮先 → ZIP ファイル」で作った zip の中身は検証していない。
+- In CP932, an undefined two-byte sequence becomes "・" (U+30FB), and **the second byte is consumed even if it is ASCII**. `报告最终版.pdf` (GBK) became `ｱｨｸ贐靑ﾕｰ・pdf`, losing the "." of its extension. The browser's TextDecoder behaves differently here, so `decodeCp932Win` in `zipcheckforwindows.js` reproduces the Windows behavior (it matches `MultiByteToWideChar(932)` for all 32,896 one- and two-byte sequences).
+- The "/" folder separator is lost for the same reason. The UTF-8, unflagged entries `テスト/`, `テスト/ガ.txt`, and `資料/報告.txt` were extracted as `繝・せ繝・` (**a 0-byte file**), `繝・せ繝・繧ｬ.txt` (outside the folder), and `雉・侭\蝣ｱ蜻・txt` (extension lost).
+- Zips created by Windows itself: Explorer's "Send to → Compressed (zipped) folder" stored names in Shift_JIS without the flag. PowerShell 5.1 `Compress-Archive` stored names in UTF-8 with the flag, but stored subfolder separators as "\", contrary to the specification ("/").
+- According to [Xceed's documentation](https://xceed.com/documentation/xceed-filesystem-for-net/Handling%20Unicode%20characters.html), Explorer on Windows 7 ignores the Unicode Path extra field, and Windows 8 started reading it. The verification above confirms that 25H2 reads it.
+- The Chinese / Korean detection prioritizes never warning about genuine Japanese names, so names that read as half-width katakana only (such as `회의록.txt`) may be missed.
+- Not verified: PCs with "Beta: Use Unicode UTF-8 for worldwide language support" enabled, and the contents of zips created with "Compress to → ZIP File" on 23H2 and later. The "Shown in Explorer as" preview for OEM code pages other than 932 uses the browser's TextDecoder and has not been checked against Windows.
 
-## ファイル構成
+## Files
 
-| ファイル | 内容 |
+| File | Contents |
 | --- | --- |
-| `index.html` | 画面とスタイル |
-| `zipcheckforwindows.js` | zip の解析と判定（DOM に依存しないので Node.js でも動く） |
-| `favicon.svg` | ファビコン |
-| `app.js` | 画面の処理（ドラッグ＆ドロップ、結果と直し方の表示） |
+| `index.html` | Page layout and styles |
+| `zipcheckforwindows.js` | Zip parsing and checks (no DOM dependency, so it also runs in Node.js) |
+| `app.js` | UI logic (drag and drop, rendering results and fixes, Japanese / English messages) |
+| `favicon.svg` | Favicon |
